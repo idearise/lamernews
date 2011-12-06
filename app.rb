@@ -471,7 +471,7 @@ get "/user/:username" do
                 H.li {H.b {"posted sources "}+posted_news.to_s}+
                 H.li {H.b {"posted comments "}+posted_comments.to_s}+
                 if owner
-                    H.li {H.a(:href=>"/saved/0") {"saved source"}}
+                    H.li {H.a(:href=>"/saved/0") {"saved sources"}}
                 else "" end+
                 H.li {
                     H.a(:href=>"/usercomments/"+H.urlencode(user['username'])+
