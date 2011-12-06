@@ -36,7 +36,7 @@ require 'digest/md5'
   require File.join(File.dirname(__FILE__), f) }
 require 'openssl' if UseOpenSSL
 
-Version = "0.9.2"
+Version = "0.0.1"
 
 before do
     if ENV["REDISTOGO_URL"]
@@ -896,10 +896,8 @@ def application_footer
     end
     H.footer {
         links = [
-            ["source code", "http://github.com/antirez/lamernews"],
             ["rss feed", "/rss"],
-            ["twitter", FooterTwitterLink],
-            ["google group", FooterGoogleGroupLink]
+            ["twitter", FooterTwitterLink]
         ]
         links.map{|l| l[1] ?
             H.a(:href => l[1]) {H.entities l[0]} :
