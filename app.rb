@@ -68,10 +68,10 @@ before do
 end
 
 get '/' do
-    H.set_title "Top news - #{SiteName}"
+    H.set_title "Top sources - #{SiteName}"
     news,numitems = get_top_news
     H.page {
-        H.h2 {"Top news"}+news_list_to_html(news)
+        H.h2 {"Top sources"}+news_list_to_html(news)
     }
 end
 
@@ -100,7 +100,7 @@ end
 
 get '/latest/:start' do
     start = params[:start].to_i
-    H.set_title "Latest news - #{SiteName}"
+    H.set_title "Latest sources - #{SiteName}"
     paginate = {
         :get => Proc.new {|start,count|
             get_latest_news(start,count)
@@ -111,7 +111,7 @@ get '/latest/:start' do
         :link => "/latest/$"
     }
     H.page {
-        H.h2 {"Latest news"}+
+        H.h2 {"Latest sources"}+
         H.section(:id => "newslist") {
             list_items(paginate)
         }
@@ -121,7 +121,7 @@ end
 get '/saved/:start' do
     redirect "/login" if !$user
     start = params[:start].to_i
-    H.set_title "Saved news - #{SiteName}"
+    H.set_title "Saved sources - #{SiteName}"
     paginate = {
         :get => Proc.new {|start,count|
             get_saved_news($user['id'],start,count)
@@ -132,7 +132,7 @@ get '/saved/:start' do
         :link => "/saved/$"
     }
     H.page {
-        H.h2 {"Your saved news"}+
+        H.h2 {"Your saved sources"}+
         H.section(:id => "newslist") {
             list_items(paginate)
         }
@@ -144,7 +144,7 @@ get '/usernews/:username/:start' do
     user = get_user_by_username(params[:username])
     halt(404,"Non existing user") if !user
 
-    page_title = "News posted by #{H.entities user['username']}"
+    page_title = "Source posted by #{H.entities user['username']}"
 
     H.set_title "#{page_title} - #{SiteName}"
     paginate = {
@@ -232,9 +232,9 @@ end
 
 get '/submit' do
     redirect "/login" if !$user
-    H.set_title "Submit a new story - #{SiteName}"
+    H.set_title "Submit a new source - #{SiteName}"
     H.page {
-        H.h2 {"Submit a new story"}+
+        H.h2 {"Submit a new source"}+
         H.div(:id => "submitform") {
             H.form(:name=>"f") {
                 H.inputhidden(:name => "news_id", :value => -1)+
@@ -252,7 +252,7 @@ get '/submit' do
         H.div(:id => "errormsg"){}+
         H.p {
             bl = "javascript:window.location=%22#{SiteUrl}/submit?u=%22+encodeURIComponent(document.location)+%22&t=%22+encodeURIComponent(document.title)"
-            "Submitting news is simpler using the "+
+            "Submitting sources is simpler using the "+
             H.a(:href => bl) {
                 "bookmarklet"
             }+
@@ -275,7 +275,7 @@ end
 
 get "/news/:news_id" do
     news = get_news_by_id(params["news_id"])
-    halt(404,"404 - This news does not exist.") if !news
+    halt(404,"404 - This source does not exist.") if !news
     # Show the news text if it is a news without URL.
     if !news_domain(news)
         c = {
@@ -317,7 +317,7 @@ end
 
 get "/comment/:news_id/:comment_id" do
     news = get_news_by_id(params["news_id"])
-    halt(404,"404 - This news does not exist.") if !news
+    halt(404,"404 - This source does not exist.") if !news
     comment = Comments.fetch(params["news_id"],params["comment_id"])
     halt(404,"404 - This comment does not exist.") if !comment
     H.page {
@@ -341,7 +341,7 @@ end
 get "/reply/:news_id/:comment_id" do
     redirect "/login" if !$user
     news = get_news_by_id(params["news_id"])
-    halt(404,"404 - This news does not exist.") if !news
+    halt(404,"404 - This source does not exist.") if !news
     comment = Comments.fetch(params["news_id"],params["comment_id"])
     halt(404,"404 - This comment does not exist.") if !comment
     user = get_user_by_id(comment["user_id"]) || DeletedUser
@@ -368,7 +368,7 @@ end
 get "/editcomment/:news_id/:comment_id" do
     redirect "/login" if !$user
     news = get_news_by_id(params["news_id"])
-    halt(404,"404 - This news does not exist.") if !news
+    halt(404,"404 - This source does not exist.") if !news
     comment = Comments.fetch(params["news_id"],params["comment_id"])
     halt(404,"404 - This comment does not exist.") if !comment
     user = get_user_by_id(comment["user_id"]) || DeletedUser
@@ -401,7 +401,7 @@ end
 get "/editnews/:news_id" do
     redirect "/login" if !$user
     news = get_news_by_id(params["news_id"])
-    halt(404,"404 - This news does not exist.") if !news
+    halt(404,"404 - This source does not exist.") if !news
     halt(500,"Permission denied.") if $user['id'].to_i != news['user_id'].to_i
 
     if news_domain(news)
@@ -410,7 +410,7 @@ get "/editnews/:news_id" do
         text = news_text(news)
         news['url'] = ""
     end
-    H.set_title "Edit news - #{SiteName}"
+    H.set_title "Edit source - #{SiteName}"
     H.page {
         news_to_html(news)+
         H.div(:id => "submitform") {
@@ -429,7 +429,7 @@ get "/editnews/:news_id" do
                     H.entities(text)
                 }+H.br+
                 H.checkbox(:name => "del", :value => "1")+
-                "delete this news"+H.br+
+                "delete this source"+H.br+
                 H.button(:name => "edit_news", :value => "Edit")
             }
         }+
@@ -468,10 +468,10 @@ get "/user/:username" do
                     "#{(Time.now.to_i-user['ctime'].to_i)/(3600*24)} days ago"
                 }+
                 H.li {H.b {"karma "}+ "#{user['karma']} points"}+
-                H.li {H.b {"posted news "}+posted_news.to_s}+
+                H.li {H.b {"posted sources "}+posted_news.to_s}+
                 H.li {H.b {"posted comments "}+posted_comments.to_s}+
                 if owner
-                    H.li {H.a(:href=>"/saved/0") {"saved news"}}
+                    H.li {H.a(:href=>"/saved/0") {"saved source"}}
                 else "" end+
                 H.li {
                     H.a(:href=>"/usercomments/"+H.urlencode(user['username'])+
@@ -602,7 +602,7 @@ post '/api/submit' do
            params[:url].index("https://") != 0
             return {
                 :status => "err",
-                :error => "We only accept http:// and https:// news."
+                :error => "We only accept http:// and https:// sources."
             }.to_json
         end
     end
@@ -610,7 +610,7 @@ post '/api/submit' do
         if submitted_recently
             return {
                 :status => "err",
-                :error => "You have submitted a story too recently, "+
+                :error => "You have submitted a source too recently, "+
                 "please wait #{allowed_to_post_in_seconds} seconds."
             }.to_json
         end
@@ -622,7 +622,7 @@ post '/api/submit' do
         if !news_id
             return {
                 :status => "err",
-                :error => "Invalid parameters, news too old to be modified "+
+                :error => "Invalid parameters, source too old to be modified "+
                           "or url recently posted."
             }.to_json
         end
@@ -642,13 +642,13 @@ post '/api/delnews' do
     if (!check_params "news_id")
         return {
             :status => "err",
-            :error => "Please specify a news title."
+            :error => "Please specify a source title."
         }.to_json
     end
     if del_news(params[:news_id],$user["id"])
         return {:status => "ok", :news_id => -1}.to_json
     end
-    return {:status => "err", :error => "News too old or wrong ID/owner."}.to_json
+    return {:status => "err", :error => "Source too old or wrong ID/owner."}.to_json
 end
 
 post '/api/votenews' do
@@ -662,7 +662,7 @@ post '/api/votenews' do
                                                  params["vote_type"] != "down")
         return {
             :status => "err",
-            :error => "Missing news ID or invalid vote type."
+            :error => "Missing source ID or invalid vote type."
         }.to_json
     end
     # Vote the news
@@ -695,7 +695,7 @@ post '/api/postcomment' do
                           params["parent_id"].to_i,params["comment"])
     return {
         :status => "err",
-        :error => "Invalid news, comment, or edit time expired."
+        :error => "Invalid source, comment, or edit time expired."
     }.to_json if !info
     return {
         :status => "ok",
@@ -781,7 +781,7 @@ get  '/api/getcomments/:news_id' do
     content_type 'application/json'
     return {
         :status => "err",
-        :error => "Wrong news ID."
+        :error => "Wrong source ID."
     }.to_json if not get_news_by_id(params[:news_id])
     thread = Comments.fetch_thread(params[:news_id])
     top_comments = []
