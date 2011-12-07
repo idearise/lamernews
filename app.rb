@@ -618,6 +618,14 @@ post '/api/submit' do
             }.to_json
         end
     end
+    if params[:file].length != 0 
+        if params[:file][:tempfile].size > 5242880
+            return {
+                :status => "err",
+                :error => "Files cannot be larger than 5 MB."
+            }.to_json            
+        end
+    end
     if params[:news_id].to_i == -1
         if submitted_recently
             return {
