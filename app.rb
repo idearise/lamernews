@@ -42,7 +42,7 @@ set :bucket, 'profmade'
 set :s3_key, ENV['S3_KEY']
 set :s3_secret, ENV['S3_SECRET']
 
-set :environment, :development
+# set :environment, :development
 
 Version = "0.0.1"
 
@@ -1325,8 +1325,8 @@ def insert_news(title,url,text,user_id)
         end
         file_name = name
         file_url = AWS::S3::S3Object.url_for("#{news_id}.#{name.split('.').last}",
-                        settings.bucket)#,
-                        # :authenticated => false)
+                        settings.bucket,
+                        :authenticated => false)
     else
         file_name = nil
         file_url = nil
