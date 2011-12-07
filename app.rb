@@ -32,9 +32,17 @@ require 'sinatra'
 require 'json'
 require 'digest/sha1'
 require 'digest/md5'
+require 'aws/s3'
 %w{ app_config page comments pbkdf2 }.each { |f| 
   require File.join(File.dirname(__FILE__), f) }
 require 'openssl' if UseOpenSSL
+require "sinatra/reloader" if development?
+
+set :bucket, 'profmade'
+set :s3_key, ENV['S3_KEY']
+set :s3_secret, ENV['S3_SECRET']
+
+set :environment, :development
 
 Version = "0.0.1"
 
@@ -236,13 +244,16 @@ get '/submit' do
     H.page {
         H.h2 {"Submit a new source"}+
         H.div(:id => "submitform") {
-            H.form(:name=>"f") {
+            H.form(:name=>"f",:id=>"form-source",:action=>"/api/submit",:method=>"post",:enctype=>"multipart/form-data") {
                 H.inputhidden(:name => "news_id", :value => -1)+
-                H.label(:for => "title") {"title"}+
+                H.inputhidden(:id=> "apisecret",:name => "apisecret", :value => $user['apisecret'] )+
+                H.label(:for => "title") {"title *"}+
                 H.inputtext(:id => "title", :name => "title", :size => 80, :value => (params[:t] ? H.entities(params[:t]) : ""))+H.br+
                 H.label(:for => "url") {"url"}+H.br+
                 H.inputtext(:id => "url", :name => "url", :size => 60, :value => (params[:u] ? H.entities(params[:u]) : ""))+H.br+
-                "or if you don't have an url type some text"+
+                # "or if you don't have a URL, enter some text"+H.br+
+                H.label(:for => "file") {"file"}+H.br+
+                H.inputfile(:id=>"file",:name=>"file")+
                 H.br+
                 H.label(:for => "text") {"text"}+
                 H.textarea(:id => "text", :name => "text", :cols => 60, :rows => 10) {}+
@@ -252,7 +263,7 @@ get '/submit' do
         H.div(:id => "errormsg"){}+
         H.p {
             bl = "javascript:window.location=%22#{SiteUrl}/submit?u=%22+encodeURIComponent(document.location)+%22&t=%22+encodeURIComponent(document.title)"
-            "Submitting sources is simpler using the "+
+            "You can also add a source by using the "+
             H.a(:href => bl) {
                 "bookmarklet"
             }+
@@ -422,8 +433,8 @@ get "/editnews/:news_id" do
                 H.label(:for => "url") {"url"}+H.br+
                 H.inputtext(:id => "url", :name => "url", :size => 60,
                             :value => H.entities(news['url']))+H.br+
-                "or if you don't have an url type some text"+
-                H.br+
+                # "or if you don't have an url type some text"+
+                # H.br+
                 H.label(:for => "text") {"text"}+
                 H.textarea(:id => "text", :name => "text", :cols => 60, :rows => 10) {
                     H.entities(text)
@@ -587,12 +598,13 @@ post '/api/submit' do
     end
 
     # We can have an empty url or an empty first comment, but not both.
-    if (!check_params "title","news_id",:url,:text) or
+    if (!check_params "title","news_id",:url,:file,:text) or
                                (params[:url].length == 0 and
+                                params[:file].length == 0 and
                                 params[:text].length == 0)
         return {
             :status => "err",
-            :error => "Please specify a news title and address or text."
+            :error => "Please enter a title and either an address, file, or text entry."
         }.to_json
     end
     # Make sure the URL is about an acceptable protocol, that is
@@ -627,10 +639,14 @@ post '/api/submit' do
             }.to_json
         end
     end
-    return  {
-        :status => "ok",
-        :news_id => news_id.to_i
-    }.to_json
+    if (params[:file] && params[:file][:filename])
+        redirect "/news/#{news_id}"
+    else
+        return  {
+            :status => "ok",
+            :news_id => news_id.to_i
+        }.to_json
+    end
 end
 
 post '/api/delnews' do
@@ -1052,7 +1068,8 @@ end
 
 # Has the user submitted a news story in the last `NewsSubmissionBreak` seconds?
 def submitted_recently
-    allowed_to_post_in_seconds > 0
+    # allowed_to_post_in_seconds > 0
+    false
 end
 
 # Indicates when the user is allowed to submit another story after the last.
@@ -1293,6 +1310,28 @@ def insert_news(title,url,text,user_id)
     # We can finally insert the news.
     ctime = Time.new.to_i
     news_id = $r.incr("news.count")
+
+    if params[:file] && (tmpfile = params[:file][:tempfile]) && (name = params[:file][:filename].strip)
+        clean_name = File.basename(name)
+        name = clean_name.sub(/[^\w\.\-]/,'_')        
+        while blk = tmpfile.read(65536)
+            AWS::S3::Base.establish_connection!(
+            :access_key_id     => settings.s3_key,
+            :secret_access_key => settings.s3_secret)
+            AWS::S3::S3Object.store("#{news_id}.#{name.split('.').last}",
+                                    open(tmpfile),
+                                    settings.bucket,
+                                    :access => :public_read)   
+        end
+        file_name = name
+        file_url = AWS::S3::S3Object.url_for("#{news_id}.#{name.split('.').last}",
+                        settings.bucket)#,
+                        # :authenticated => false)
+    else
+        file_name = nil
+        file_url = nil
+    end
+
     $r.hmset("news:#{news_id}",
         "id", news_id,
         "title", title,
@@ -1303,7 +1342,9 @@ def insert_news(title,url,text,user_id)
         "rank", 0,
         "up", 0,
         "down", 0,
-        "comments", 0)
+        "comments", 0,
+        "file_name", file_name,
+        "file_url", file_url)
     # The posting user virtually upvoted the news posting it
     rank,error = vote_news(news_id,user_id,:up)
     # Add the news to the user submitted news
@@ -1316,6 +1357,7 @@ def insert_news(title,url,text,user_id)
     $r.setex("url:"+url,PreventRepostTime,news_id) if !textpost
     # Set a timeout indicating when the user may post again
     $r.setex("user:#{$user['id']}:submitted_recently",NewsSubmissionBreak,'1')
+
     return news_id
 end
 
@@ -1466,6 +1508,13 @@ def news_to_html(news)
                 news["comments"]+" comments"
             }
         }+
+        if news["file_url"]
+            H.p {
+                H.a(:href=>news["file_url"]) {
+                    H.entities news["file_name"]
+                }                
+            }
+        else "" end +        
         if params and params[:debug] and $user and user_is_admin?($user)
             "score: "+news["score"].to_s+" "+
             "rank: "+compute_news_rank(news).to_s

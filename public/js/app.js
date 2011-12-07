@@ -31,22 +31,26 @@ function submit() {
         apisecret: apisecret
     };
     var del = $("input[name=del]").length && $("input[name=del]").attr("checked");
-    $.ajax({
-        type: "POST",
-        url: del ? "/api/delnews" : "/api/submit",
-        data: data,
-        success: function(r) {
-            if (r.status == "ok") {
-                if (r.news_id == -1) {
-                    window.location.href = "/";
+    if (!document.getElementById('file').value) {
+        $.ajax({
+            type: "POST",
+            url: del ? "/api/delnews" : "/api/submit",
+            data: data,
+            success: function(r) {
+                if (r.status == "ok") {
+                    if (r.news_id == -1) {
+                        window.location.href = "/";
+                    } else {
+                        window.location.href = "/news/"+r.news_id;
+                    }
                 } else {
-                    window.location.href = "/news/"+r.news_id;
+                    $("#errormsg").html(r.error)
                 }
-            } else {
-                $("#errormsg").html(r.error)
             }
-        }
-    });
+        });        
+    } else {
+        $("#form-source").submit();
+    }
     return false;
 }
 

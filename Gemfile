@@ -9,6 +9,9 @@ gem 'ruby-hmac'
 gem 'unicorn'
 gem 'thin'
 
+gem 'aws-s3'
+gem 'sinatra-contrib'
+
 group :test do
   gem 'rspec', '>=2.4.0'
   gem 'rack-test'
